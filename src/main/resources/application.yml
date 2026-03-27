@@ -22,6 +22,12 @@ spring:
                 redis-rate-limiter.replenishRate: 10
                 redis-rate-limiter.burstCapacity: 20
                 redis-rate-limiter.requestedTokens: 1
+            - JwtHeaderFilter
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/nihongo
 eureka:
   instance:
     prefer-ip-address: true
@@ -31,3 +37,5 @@ eureka:
       register-with-eureka: true
       fetch-registry: true
 
+api:
+  key: thangdeptrai
