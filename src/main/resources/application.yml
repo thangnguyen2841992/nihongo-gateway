@@ -15,7 +15,7 @@ spring:
         - id: user-service
           uri: lb://user-service
           predicates:
-            - Path=/api/users/**
+            - Path=/api/auth/**,/api/users/**
           filters:
             - name: RequestRateLimiter
               args:
@@ -39,3 +39,4 @@ eureka:
 
 api:
   key: thangdeptrai
+  client-id: japanese_app

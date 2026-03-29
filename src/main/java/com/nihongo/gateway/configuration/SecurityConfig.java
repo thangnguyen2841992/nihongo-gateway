@@ -14,7 +14,11 @@ public class SecurityConfig {
     SecurityWebFilterChain filterChain(ServerHttpSecurity http) throws Exception {
         http.csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .authorizeExchange(exchange -> exchange
-                        .pathMatchers("api/users/auth/**").permitAll()
+                        .pathMatchers("/api/auth/**").permitAll()
+                        .pathMatchers("/api/users/**").permitAll()
+//                        .pathMatchers("/api/user/**").hasAnyRole("ADMIN", "USER", "STAFF")
+//                        .pathMatchers("/api/admin/**").hasRole("ADMIN")
+//                        .pathMatchers("/api/staff/**").hasAnyRole("ADMIN", "STAFF")
                         .anyExchange().authenticated()
                 )
                 .oauth2ResourceServer(resourceServer -> resourceServer

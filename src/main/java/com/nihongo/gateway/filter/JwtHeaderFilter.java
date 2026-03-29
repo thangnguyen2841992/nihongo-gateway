@@ -11,6 +11,11 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.security.Principal;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import static org.apache.hc.core5.http.message.MessageSupport.header;
 
 @Component
 public class JwtHeaderFilter extends AbstractGatewayFilterFactory<JwtHeaderFilter.Config> {
@@ -21,6 +26,9 @@ public class JwtHeaderFilter extends AbstractGatewayFilterFactory<JwtHeaderFilte
 
     @Value("${api.key}")
     private String interPrivateKey;
+
+    @Value("${api.client-id}")
+    private String clientId;
 
     @Override
     public GatewayFilter apply(JwtHeaderFilter.Config config) {
@@ -45,9 +53,29 @@ public class JwtHeaderFilter extends AbstractGatewayFilterFactory<JwtHeaderFilte
 
             System.out.println("Setting headers X-User-Id: " + userId + " X-Username: " + username);
 
+
+            List<String> roles = new ArrayList<>();
+
+            Map<String, Object> resourceAccess = (Map<String, Object>) claims.get("resource_access");
+
+            if (resourceAccess != null) {
+
+                Map<String, Object> client = (Map<String, Object>) resourceAccess.get(clientId);
+
+                if (client != null && client.get("roles") != null) {
+                    roles = (List<String>) client.get("roles"); // ✅ ĐÚNG
+                }
+            }
+
+            // 👉 Convert roles thành string
+            String roleHeader = String.join(",", roles);
+
+            System.out.println("Roles: " + roleHeader);
+
             requestBuilder
                     .header("X-User-Id", userId)
-                    .header("X-Username", username);
+                    .header("X-Username", username)
+                    .header("X-Roles", roleHeader);
         }
 
         ServerHttpRequest mutatedRequest = requestBuilder.build();
