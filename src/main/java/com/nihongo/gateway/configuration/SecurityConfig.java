@@ -16,9 +16,6 @@ public class SecurityConfig {
                 .authorizeExchange(exchange -> exchange
                         .pathMatchers("/api/auth/**").permitAll()
                         .pathMatchers("/api/users/**").permitAll()
-//                        .pathMatchers("/api/user/**").hasAnyRole("ADMIN", "USER", "STAFF")
-//                        .pathMatchers("/api/admin/**").hasRole("ADMIN")
-//                        .pathMatchers("/api/staff/**").hasAnyRole("ADMIN", "STAFF")
                         .anyExchange().authenticated()
                 )
                 .oauth2ResourceServer(resourceServer -> resourceServer

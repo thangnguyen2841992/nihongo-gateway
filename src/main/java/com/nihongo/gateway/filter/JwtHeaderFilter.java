@@ -4,18 +4,21 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.security.Principal;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-
-import static org.apache.hc.core5.http.message.MessageSupport.header;
+import java.util.Objects;
 
 @Component
 public class JwtHeaderFilter extends AbstractGatewayFilterFactory<JwtHeaderFilter.Config> {
@@ -25,49 +28,68 @@ public class JwtHeaderFilter extends AbstractGatewayFilterFactory<JwtHeaderFilte
     }
 
     @Value("${api.key}")
-    private String interPrivateKey;
+    private String apiKey;
 
     @Value("${api.client-id}")
     private String clientId;
 
     @Override
-    public GatewayFilter apply(JwtHeaderFilter.Config config) {
+    public GatewayFilter apply(Config config) {
 
-        return (exchange, chain) ->
-                exchange.getPrincipal()
-                        .flatMap(principal -> process(exchange, chain, principal))
-                        .switchIfEmpty(process(exchange, chain, null));
+        return (exchange, chain) -> {
+
+            // 🔐 1. Check API KEY (từ client)
+            List<String> apiKeyHeaders = exchange.getRequest().getHeaders().get("apiKey");
+
+            if (apiKeyHeaders == null || apiKeyHeaders.isEmpty()) {
+                return handleException(exchange, "Missing API Key", HttpStatus.UNAUTHORIZED);
+            }
+
+            String key = apiKeyHeaders.get(0);
+
+            if (!apiKey.equals(key)) {
+                return handleException(exchange, "Invalid API Key", HttpStatus.FORBIDDEN);
+            }
+
+            // 👉 2. Xử lý JWT + add header
+            return exchange.getPrincipal()
+                    .flatMap(principal -> process(exchange, chain, principal))
+                    .switchIfEmpty(process(exchange, chain, null));
+        };
     }
 
-    private Mono<Void> process(ServerWebExchange exchange, GatewayFilterChain chain, Principal principal) {
+    private Mono<Void> process(ServerWebExchange exchange,
+                               GatewayFilterChain chain,
+                               Principal principal) {
 
         ServerHttpRequest.Builder requestBuilder = exchange.getRequest().mutate();
 
-        requestBuilder.header("X-Gateway-Token", interPrivateKey);
+        // 🔐 Internal token (giữa gateway ↔ service)
+        requestBuilder.header("X-Gateway-Token", apiKey);
 
         if (principal instanceof JwtAuthenticationToken jwtAuth) {
+
             var claims = jwtAuth.getToken().getClaims();
 
-            var userId = claims.get("sub") != null ? claims.get("sub").toString() : "";
-            var username = claims.get("preferred_username") != null ? claims.get("preferred_username").toString() : "";
+            String userId = Objects.toString(claims.get("sub"), "");
+            String username = Objects.toString(claims.get("preferred_username"), "");
 
             System.out.println("Setting headers X-User-Id: " + userId + " X-Username: " + username);
 
-
             List<String> roles = new ArrayList<>();
 
-            Map<String, Object> resourceAccess = (Map<String, Object>) claims.get("resource_access");
+            Map<String, Object> resourceAccess =
+                    (Map<String, Object>) claims.get("resource_access");
 
             if (resourceAccess != null) {
-
-                Map<String, Object> client = (Map<String, Object>) resourceAccess.get(clientId);
+                Map<String, Object> client =
+                        (Map<String, Object>) resourceAccess.get(clientId);
 
                 if (client != null && client.get("roles") != null) {
-                    roles = (List<String>) client.get("roles"); // ✅ ĐÚNG
+                    roles = (List<String>) client.get("roles");
                 }
             }
 
-            // 👉 Convert roles thành string
             String roleHeader = String.join(",", roles);
 
             System.out.println("Roles: " + roleHeader);
@@ -79,11 +101,30 @@ public class JwtHeaderFilter extends AbstractGatewayFilterFactory<JwtHeaderFilte
         }
 
         ServerHttpRequest mutatedRequest = requestBuilder.build();
-        ServerWebExchange mutatedExchange = exchange.mutate().request(mutatedRequest).build();
-
-        return chain.filter(mutatedExchange);
+        return chain.filter(exchange.mutate().request(mutatedRequest).build());
     }
 
-    static class Config {
+    private Mono<Void> handleException(ServerWebExchange exchange,
+                                       String message,
+                                       HttpStatus status) {
+
+        ServerHttpResponse response = exchange.getResponse();
+        response.setStatusCode(status);
+        response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+
+        String errorResponse = String.format(
+                "{\"timestamp\": \"%s\", \"status\": %d, \"error\": \"%s\", \"message\": \"%s\", \"path\": \"%s\"}",
+                ZonedDateTime.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                message,
+                exchange.getRequest().getURI().getPath()
+        );
+
+        return response.writeWith(
+                Mono.just(response.bufferFactory().wrap(errorResponse.getBytes()))
+        );
     }
+
+    static class Config {}
 }
