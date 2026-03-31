@@ -1,5 +1,7 @@
 package com.nihongo.gateway.filter;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -33,30 +35,61 @@ public class JwtHeaderFilter extends AbstractGatewayFilterFactory<JwtHeaderFilte
     @Value("${api.client-id}")
     private String clientId;
 
+    private static final Logger log = LoggerFactory.getLogger(JwtHeaderFilter.class);
+
     @Override
     public GatewayFilter apply(Config config) {
-
         return (exchange, chain) -> {
 
-            // 🔐 1. Check API KEY (từ client)
-            List<String> apiKeyHeaders = exchange.getRequest().getHeaders().get("apiKey");
+            String path = exchange.getRequest().getURI().getPath();
 
-            if (apiKeyHeaders == null || apiKeyHeaders.isEmpty()) {
-                return handleException(exchange, "Missing API Key", HttpStatus.UNAUTHORIZED);
+            // ✅ BỎ QUA auth endpoints
+            if (path.startsWith("/api/auth/")) {
+                return chain.filter(exchange);
             }
 
-            String key = apiKeyHeaders.get(0);
+            String key = exchange.getRequest().getHeaders().getFirst("X-API-Key");
+
+            if (key == null) {
+                return handleException(exchange, "Missing API Key", HttpStatus.UNAUTHORIZED);
+            }
 
             if (!apiKey.equals(key)) {
                 return handleException(exchange, "Invalid API Key", HttpStatus.FORBIDDEN);
             }
 
-            // 👉 2. Xử lý JWT + add header
             return exchange.getPrincipal()
                     .flatMap(principal -> process(exchange, chain, principal))
-                    .switchIfEmpty(process(exchange, chain, null));
+                    .switchIfEmpty(Mono.defer(() ->
+                            handleException(exchange, "Missing JWT", HttpStatus.UNAUTHORIZED)
+                    ));
         };
     }
+
+//    @Override
+//    public GatewayFilter apply(Config config) {
+//
+//        return (exchange, chain) -> {
+//
+//            // 🔐 1. Check API KEY (từ client)
+//            List<String> apiKeyHeaders = exchange.getRequest().getHeaders().get("apiKey");
+//
+//            if (apiKeyHeaders == null || apiKeyHeaders.isEmpty()) {
+//                return handleException(exchange, "Missing API Key", HttpStatus.UNAUTHORIZED);
+//            }
+//
+//            String key = apiKeyHeaders.get(0);
+//
+//            if (!apiKey.equals(key)) {
+//                return handleException(exchange, "Invalid API Key", HttpStatus.FORBIDDEN);
+//            }
+//
+//            // 👉 2. Xử lý JWT + add header
+//            return exchange.getPrincipal()
+//                    .flatMap(principal -> process(exchange, chain, principal))
+//                    .switchIfEmpty(process(exchange, chain, null));
+//        };
+//    }
 
     private Mono<Void> process(ServerWebExchange exchange,
                                GatewayFilterChain chain,
@@ -64,41 +97,55 @@ public class JwtHeaderFilter extends AbstractGatewayFilterFactory<JwtHeaderFilte
 
         ServerHttpRequest.Builder requestBuilder = exchange.getRequest().mutate();
 
+
+        if (!(principal instanceof JwtAuthenticationToken jwtAuth)) {
+            return handleException(exchange, "Invalid JWT", HttpStatus.UNAUTHORIZED);
+        }
         // 🔐 Internal token (giữa gateway ↔ service)
         requestBuilder.header("X-Gateway-Token", apiKey);
+        var claims = jwtAuth.getToken().getClaims();
 
-        if (principal instanceof JwtAuthenticationToken jwtAuth) {
+        String userId = Objects.toString(claims.get("sub"), "");
+        String username = Objects.toString(claims.get("preferred_username"), "");
 
-            var claims = jwtAuth.getToken().getClaims();
+        log.debug("UserId: {}, Username: {}", userId, username);
 
-            String userId = Objects.toString(claims.get("sub"), "");
-            String username = Objects.toString(claims.get("preferred_username"), "");
 
-            System.out.println("Setting headers X-User-Id: " + userId + " X-Username: " + username);
+        List<String> roles = new ArrayList<>();
 
-            List<String> roles = new ArrayList<>();
+        Object resourceAccessObj = claims.get("resource_access");
 
-            Map<String, Object> resourceAccess =
-                    (Map<String, Object>) claims.get("resource_access");
+        if (resourceAccessObj instanceof Map<?, ?> resourceAccess) {
+            Object clientObj = resourceAccess.get(clientId);
 
-            if (resourceAccess != null) {
-                Map<String, Object> client =
-                        (Map<String, Object>) resourceAccess.get(clientId);
+            if (clientObj instanceof Map<?, ?> client) {
+                Object rolesObj = client.get("roles");
 
-                if (client != null && client.get("roles") != null) {
-                    roles = (List<String>) client.get("roles");
+                if (rolesObj instanceof List<?> roleList) {
+                    roles = roleList.stream()
+                            .map(Object::toString)
+                            .toList();
                 }
             }
-
-            String roleHeader = String.join(",", roles);
-
-            System.out.println("Roles: " + roleHeader);
-
-            requestBuilder
-                    .header("X-User-Id", userId)
-                    .header("X-Username", username)
-                    .header("X-Roles", roleHeader);
         }
+
+//        if (resourceAccess != null) {
+//            Map<String, Object> client =
+//                    (Map<String, Object>) resourceAccess.get(clientId);
+//
+//            if (client != null && client.get("roles") != null) {
+//                roles = (List<String>) client.get("roles");
+//            }
+//        }
+
+        String roleHeader = String.join(",", roles);
+//        System.out.println("Roles: " + roleHeader);
+        log.debug("Roles: {}", roleHeader);
+
+        requestBuilder
+                .header("X-User-Id", userId)
+                .header("X-Username", username)
+                .header("X-Roles", roleHeader);
 
         ServerHttpRequest mutatedRequest = requestBuilder.build();
         return chain.filter(exchange.mutate().request(mutatedRequest).build());
