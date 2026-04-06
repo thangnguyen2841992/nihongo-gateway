@@ -43,8 +43,8 @@ public class JwtHeaderFilter extends AbstractGatewayFilterFactory<JwtHeaderFilte
 
             String path = exchange.getRequest().getURI().getPath();
 
-            // ✅ BỎ QUA auth endpoints
-            if (path.startsWith("/api/auth/") || path.startsWith("/api/active-user/")) {
+            if (path.startsWith("/api/auth/") || path.startsWith("/api/active-user/")
+                    || path.startsWith("/login/oauth2/") || path.startsWith("/oauth2/")) {
                 return chain.filter(exchange);
             }
 

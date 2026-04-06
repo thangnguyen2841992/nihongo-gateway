@@ -15,7 +15,7 @@ spring:
         - id: user-service
           uri: lb://user-service
           predicates:
-            - Path=/api/auth/**,/api/users/**,/api/active-user/**
+            - Path=/api/auth/**,/api/users/**,/api/active-user/**,/login/oauth2/**,/oauth2/**
           filters:
             - name: RequestRateLimiter
               args:
