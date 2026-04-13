@@ -8,7 +8,7 @@ spring:
     host: localhost
   cloud:
     gateway:
-      discover:
+      discovery:
         locator:
           enabled: true
       routes:
@@ -16,6 +16,16 @@ spring:
           uri: lb://user-service
           predicates:
             - Path=/api/auth/**,/api/users/**,/api/active-user/**,/images/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                redis-rate-limiter.requestedTokens: 1
+        - id: admin-service
+          uri: lb://admin-service
+          predicates:
+            - Path=/api/admin/**
           filters:
             - name: RequestRateLimiter
               args:
