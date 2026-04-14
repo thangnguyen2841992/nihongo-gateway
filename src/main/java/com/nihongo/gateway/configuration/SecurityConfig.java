@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableReactiveMethodSecurity;
+import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -23,9 +24,15 @@ import java.util.Map;
 @EnableReactiveMethodSecurity
 public class SecurityConfig {
     @Bean
-    SecurityWebFilterChain filterChain(ServerHttpSecurity http) throws Exception {
-        http.csrf(ServerHttpSecurity.CsrfSpec::disable)
-                .authorizeExchange(exchange -> exchange
+    SecurityWebFilterChain filterChain(ServerHttpSecurity http,
+                                       JwtCookieWebFilter jwtCookieWebFilter) {
+
+        http.csrf(ServerHttpSecurity.CsrfSpec::disable);
+
+        // 🔥 QUAN TRỌNG NHẤT (fix lỗi của bạn)
+        http.addFilterBefore(jwtCookieWebFilter, SecurityWebFiltersOrder.AUTHENTICATION);
+
+        http.authorizeExchange(exchange -> exchange
                         .pathMatchers("/api/auth/**").permitAll()
                         .pathMatchers("/api/active-user/**").permitAll()
                         .pathMatchers("/images/**").permitAll()
@@ -35,6 +42,7 @@ public class SecurityConfig {
                 .oauth2ResourceServer(resourceServer -> resourceServer
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
                 );
+
         return http.build();
     }
 
