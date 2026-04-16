@@ -13,6 +13,9 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.reactive.CorsWebFilter;
+import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
@@ -23,13 +26,14 @@ import java.util.Map;
 @Configuration
 @EnableReactiveMethodSecurity
 public class SecurityConfig {
+
     @Bean
     SecurityWebFilterChain filterChain(ServerHttpSecurity http,
                                        JwtCookieWebFilter jwtCookieWebFilter) {
 
         http.csrf(ServerHttpSecurity.CsrfSpec::disable);
-
-        // 🔥 QUAN TRỌNG NHẤT (fix lỗi của bạn)
+        http.cors(cors -> {
+        });
         http.addFilterBefore(jwtCookieWebFilter, SecurityWebFiltersOrder.AUTHENTICATION);
 
         http.authorizeExchange(exchange -> exchange
@@ -65,5 +69,17 @@ public class SecurityConfig {
 
             return Mono.just(new JwtAuthenticationToken(jwt, authorities));
         };
+    }
+
+    @Bean
+    public CorsWebFilter corsWebFilter() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.addAllowedOriginPattern("http://localhost:5173");
+        config.addAllowedMethod("*");
+        config.addAllowedHeader("*");
+        config.setAllowCredentials(true);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return new CorsWebFilter(source);
     }
 }
