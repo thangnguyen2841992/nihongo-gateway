@@ -32,12 +32,21 @@ public class SecurityConfig {
                                        JwtCookieWebFilter jwtCookieWebFilter) {
 
         http.csrf(ServerHttpSecurity.CsrfSpec::disable);
-        http.cors(cors -> {
-        });
+
+        // 🔥 FIX CHUẨN Ở ĐÂY
+        http.cors(cors -> cors.configurationSource(exchange -> {
+            CorsConfiguration config = new CorsConfiguration();
+            config.addAllowedOrigin("http://localhost:5173");
+            config.addAllowedMethod("*");
+            config.addAllowedHeader("*");
+            config.setAllowCredentials(true);
+            return config;
+        }));
+
         http.addFilterBefore(jwtCookieWebFilter, SecurityWebFiltersOrder.AUTHENTICATION);
 
         http.authorizeExchange(exchange -> exchange
-                        .pathMatchers(org.springframework.http.HttpMethod.OPTIONS).permitAll() // 🔥 FIX Ở ĐÂY
+                        .pathMatchers(org.springframework.http.HttpMethod.OPTIONS).permitAll()
                         .pathMatchers("/api/auth/**").permitAll()
                         .pathMatchers("/api/active-user/**").permitAll()
                         .pathMatchers("/images/**").permitAll()
