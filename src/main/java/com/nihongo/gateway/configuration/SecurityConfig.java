@@ -37,6 +37,7 @@ public class SecurityConfig {
         http.addFilterBefore(jwtCookieWebFilter, SecurityWebFiltersOrder.AUTHENTICATION);
 
         http.authorizeExchange(exchange -> exchange
+                        .pathMatchers(org.springframework.http.HttpMethod.OPTIONS).permitAll() // 🔥 FIX Ở ĐÂY
                         .pathMatchers("/api/auth/**").permitAll()
                         .pathMatchers("/api/active-user/**").permitAll()
                         .pathMatchers("/images/**").permitAll()
@@ -74,7 +75,7 @@ public class SecurityConfig {
     @Bean
     public CorsWebFilter corsWebFilter() {
         CorsConfiguration config = new CorsConfiguration();
-        config.addAllowedOriginPattern("http://localhost:5173");
+        config.addAllowedOrigin("http://localhost:5173");
         config.addAllowedMethod("*");
         config.addAllowedHeader("*");
         config.setAllowCredentials(true);
