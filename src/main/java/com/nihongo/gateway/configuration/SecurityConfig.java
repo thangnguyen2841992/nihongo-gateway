@@ -32,8 +32,6 @@ public class SecurityConfig {
                                        JwtCookieWebFilter jwtCookieWebFilter) {
 
         http.csrf(ServerHttpSecurity.CsrfSpec::disable);
-
-        // 🔥 FIX CHUẨN Ở ĐÂY
         http.cors(cors -> cors.configurationSource(exchange -> {
             CorsConfiguration config = new CorsConfiguration();
             config.addAllowedOrigin("http://localhost:5173");
@@ -51,6 +49,7 @@ public class SecurityConfig {
                         .pathMatchers("/api/active-user/**").permitAll()
                         .pathMatchers("/images/**").permitAll()
                         .pathMatchers("/api/admin/**").hasRole("ADMIN")
+                        .pathMatchers("/api/staff/**").hasRole("STAFF")
                         .anyExchange().authenticated()
                 )
                 .oauth2ResourceServer(resourceServer -> resourceServer
@@ -92,4 +91,5 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", config);
         return new CorsWebFilter(source);
     }
+
 }
