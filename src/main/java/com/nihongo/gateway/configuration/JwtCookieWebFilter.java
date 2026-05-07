@@ -1,5 +1,6 @@
 package com.nihongo.gateway.configuration;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
@@ -8,6 +9,7 @@ import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
 import java.util.Base64;
+import java.util.Map;
 
 @Component
 public class JwtCookieWebFilter implements WebFilter {
@@ -53,17 +55,24 @@ public class JwtCookieWebFilter implements WebFilter {
     private boolean isTokenExpired(String token) {
         try {
             String[] parts = token.split("\\.");
-            String payload = new String(Base64.getDecoder().decode(parts[1]));
 
-            // extract exp (simple cách)
-            long exp = Long.parseLong(payload.split("\"exp\":")[1].split(",")[0]);
+            String payload = new String(
+                    Base64.getUrlDecoder().decode(parts[1])
+            );
+
+            ObjectMapper mapper = new ObjectMapper();
+
+            Map<String, Object> claims =
+                    mapper.readValue(payload, Map.class);
+
+            long exp = ((Number) claims.get("exp")).longValue();
 
             long now = System.currentTimeMillis() / 1000;
 
             return exp < now;
 
         } catch (Exception e) {
-            return true; // lỗi → coi như hết hạn
+            return true;
         }
     }
 }
