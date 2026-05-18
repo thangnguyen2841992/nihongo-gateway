@@ -3,6 +3,7 @@ package com.nihongo.gateway.configuration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableReactiveMethodSecurity;
 import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
@@ -31,32 +32,49 @@ public class SecurityConfig {
     SecurityWebFilterChain filterChain(ServerHttpSecurity http,
                                        JwtCookieWebFilter jwtCookieWebFilter) {
 
-        http.csrf(ServerHttpSecurity.CsrfSpec::disable);
-        http.cors(cors -> cors.configurationSource(exchange -> {
-            CorsConfiguration config = new CorsConfiguration();
-            config.addAllowedOrigin("http://localhost:5173");
-            config.addAllowedMethod("*");
-            config.addAllowedHeader("*");
-            config.setAllowCredentials(true);
-            return config;
-        }));
+        return http
+                // ❌ disable csrf vì dùng JWT
+                .csrf(ServerHttpSecurity.CsrfSpec::disable)
 
-        http.addFilterBefore(jwtCookieWebFilter, SecurityWebFiltersOrder.AUTHENTICATION);
+                // ✅ custom filter inject JWT từ cookie
+                .addFilterBefore(
+                        jwtCookieWebFilter,
+                        SecurityWebFiltersOrder.AUTHENTICATION
+                )
 
-        http.authorizeExchange(exchange -> exchange
-                        .pathMatchers(org.springframework.http.HttpMethod.OPTIONS).permitAll()
+                // ✅ phân quyền
+                .authorizeExchange(exchange -> exchange
+
+                        // preflight request
+                        .pathMatchers(HttpMethod.OPTIONS).permitAll()
+
+                        // public api
                         .pathMatchers("/api/auth/**").permitAll()
                         .pathMatchers("/api/active-user/**").permitAll()
                         .pathMatchers("/images/**").permitAll()
-                        .pathMatchers("/api/admin/**").hasRole("ADMIN")
-                        .pathMatchers("/api/staff/**").hasRole("STAFF")
+
+                        // role admin
+                        .pathMatchers("/api/admin/**")
+                        .hasRole("ADMIN")
+
+                        // role staff
+                        .pathMatchers("/api/staff/**")
+                        .hasAnyRole("STAFF", "ADMIN")
+
+                        // còn lại phải login
                         .anyExchange().authenticated()
                 )
-                .oauth2ResourceServer(resourceServer -> resourceServer
-                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
-                );
 
-        return http.build();
+                // ✅ oauth2 resource server
+                .oauth2ResourceServer(resourceServer ->
+                        resourceServer.jwt(jwt ->
+                                jwt.jwtAuthenticationConverter(
+                                        jwtAuthenticationConverter()
+                                )
+                        )
+                )
+
+                .build();
     }
 
     @Bean
@@ -82,13 +100,37 @@ public class SecurityConfig {
 
     @Bean
     public CorsWebFilter corsWebFilter() {
+
         CorsConfiguration config = new CorsConfiguration();
-        config.addAllowedOrigin("http://localhost:5173");
-        config.addAllowedMethod("*");
-        config.addAllowedHeader("*");
+
+        config.setAllowedOrigins(List.of(
+                "http://localhost:5173"
+        ));
+
+        config.setAllowedMethods(List.of(
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "OPTIONS",
+                "PATCH"
+        ));
+
+        config.setAllowedHeaders(List.of("*"));
+
         config.setAllowCredentials(true);
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+
+        config.setExposedHeaders(List.of(
+                "Authorization"
+        ));
+
+        config.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
         source.registerCorsConfiguration("/**", config);
+
         return new CorsWebFilter(source);
     }
 
