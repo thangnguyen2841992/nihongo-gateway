@@ -15,7 +15,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.reactive.CorsWebFilter;
+import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 import reactor.core.publisher.Mono;
 
@@ -29,43 +29,73 @@ import java.util.Map;
 public class SecurityConfig {
 
     @Bean
-    SecurityWebFilterChain filterChain(ServerHttpSecurity http,
-                                       JwtCookieWebFilter jwtCookieWebFilter) {
+    SecurityWebFilterChain filterChain(
+            ServerHttpSecurity http,
+            JwtCookieWebFilter jwtCookieWebFilter
+    ) {
 
         return http
-                // ❌ disable csrf vì dùng JWT
+
+                /* =========================
+                   CORS
+                ========================= */
+
+                .cors(cors -> cors.configurationSource(
+                        corsConfigurationSource()
+                ))
+
+                /* =========================
+                   DISABLE CSRF
+                ========================= */
+
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
 
-                // ✅ custom filter inject JWT từ cookie
+                /* =========================
+                   JWT COOKIE FILTER
+                ========================= */
+
                 .addFilterBefore(
                         jwtCookieWebFilter,
                         SecurityWebFiltersOrder.AUTHENTICATION
                 )
 
-                // ✅ phân quyền
+                /* =========================
+                   AUTHORIZATION
+                ========================= */
+
                 .authorizeExchange(exchange -> exchange
 
-                        // preflight request
-                        .pathMatchers(HttpMethod.OPTIONS).permitAll()
+                        /* preflight */
+                        .pathMatchers(HttpMethod.OPTIONS)
+                        .permitAll()
 
-                        // public api
-                        .pathMatchers("/api/auth/**").permitAll()
-                        .pathMatchers("/api/active-user/**").permitAll()
-                        .pathMatchers("/images/**").permitAll()
+                        /* public api */
+                        .pathMatchers("/api/auth/**")
+                        .permitAll()
 
-                        // role admin
+                        .pathMatchers("/api/active-user/**")
+                        .permitAll()
+
+                        .pathMatchers("/images/**")
+                        .permitAll()
+
+                        /* admin */
                         .pathMatchers("/api/admin/**")
                         .hasRole("ADMIN")
 
-                        // role staff
+                        /* staff */
                         .pathMatchers("/api/staff/**")
                         .hasAnyRole("STAFF", "ADMIN")
 
-                        // còn lại phải login
-                        .anyExchange().authenticated()
+                        /* authenticated */
+                        .anyExchange()
+                        .authenticated()
                 )
 
-                // ✅ oauth2 resource server
+                /* =========================
+                   RESOURCE SERVER
+                ========================= */
+
                 .oauth2ResourceServer(resourceServer ->
                         resourceServer.jwt(jwt ->
                                 jwt.jwtAuthenticationConverter(
@@ -78,30 +108,55 @@ public class SecurityConfig {
     }
 
     @Bean
-    public Converter<Jwt, Mono<AbstractAuthenticationToken>> jwtAuthenticationConverter() {
+    public Converter<Jwt, Mono<AbstractAuthenticationToken>>
+    jwtAuthenticationConverter() {
 
-        JwtGrantedAuthoritiesConverter defaultConverter = new JwtGrantedAuthoritiesConverter();
+        JwtGrantedAuthoritiesConverter defaultConverter =
+                new JwtGrantedAuthoritiesConverter();
+
         defaultConverter.setAuthorityPrefix("ROLE_");
 
         return jwt -> {
-            Collection<GrantedAuthority> authorities = new ArrayList<>(defaultConverter.convert(jwt));
 
-            Map<String, Object> realmAccess = jwt.getClaim("realm_access");
+            Collection<GrantedAuthority> authorities =
+                    new ArrayList<>(
+                            defaultConverter.convert(jwt)
+                    );
+
+            Map<String, Object> realmAccess =
+                    jwt.getClaim("realm_access");
+
             if (realmAccess != null) {
-                List<String> roles = (List<String>) realmAccess.get("roles");
-                roles.forEach(role -> authorities.add(
-                        new SimpleGrantedAuthority("ROLE_" + role)
-                ));
+
+                List<String> roles =
+                        (List<String>) realmAccess.get("roles");
+
+                if (roles != null) {
+
+                    roles.forEach(role ->
+                            authorities.add(
+                                    new SimpleGrantedAuthority(
+                                            "ROLE_" + role
+                                    )
+                            )
+                    );
+                }
             }
 
-            return Mono.just(new JwtAuthenticationToken(jwt, authorities));
+            return Mono.just(
+                    new JwtAuthenticationToken(
+                            jwt,
+                            authorities
+                    )
+            );
         };
     }
 
     @Bean
-    public CorsWebFilter corsWebFilter() {
+    public CorsConfigurationSource corsConfigurationSource() {
 
-        CorsConfiguration config = new CorsConfiguration();
+        CorsConfiguration config =
+                new CorsConfiguration();
 
         config.setAllowedOrigins(List.of(
                 "http://localhost:5173"
@@ -112,26 +167,26 @@ public class SecurityConfig {
                 "POST",
                 "PUT",
                 "DELETE",
-                "OPTIONS",
-                "PATCH"
+                "PATCH",
+                "OPTIONS"
         ));
 
         config.setAllowedHeaders(List.of("*"));
 
-        config.setAllowCredentials(true);
+        config.setExposedHeaders(List.of("*"));
 
-        config.setExposedHeaders(List.of(
-                "Authorization"
-        ));
+        config.setAllowCredentials(true);
 
         config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
 
-        source.registerCorsConfiguration("/**", config);
+        source.registerCorsConfiguration(
+                "/**",
+                config
+        );
 
-        return new CorsWebFilter(source);
+        return source;
     }
-
 }
