@@ -42,6 +42,16 @@ spring:
                 redis-rate-limiter.replenishRate: 10
                 redis-rate-limiter.burstCapacity: 20
                 redis-rate-limiter.requestedTokens: 1
+        - id: nihongo-user-service
+          uri: lb://nihongo-user-service
+          predicates:
+            - Path=/api/nihongo-user/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                redis-rate-limiter.requestedTokens: 1
   security:
     oauth2:
       resourceserver:
