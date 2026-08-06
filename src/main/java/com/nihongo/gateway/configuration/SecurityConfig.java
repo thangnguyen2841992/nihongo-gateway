@@ -85,7 +85,11 @@ public class SecurityConfig {
 
                         /* staff */
                         .pathMatchers("/api/staff/**")
-                        .hasAnyRole("STAFF", "ADMIN")
+                        .hasAnyRole("STAFF", "ADMIN", "USER")
+
+                        /* users */
+                        .pathMatchers("/api/nihongo-user/**")
+                        .hasAnyRole("STAFF", "ADMIN", "USER")
 
                         /* authenticated */
                         .anyExchange()
