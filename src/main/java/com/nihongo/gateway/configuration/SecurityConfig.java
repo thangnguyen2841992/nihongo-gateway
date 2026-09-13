@@ -1,5 +1,8 @@
 package com.nihongo.gateway.configuration;
 
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
@@ -10,186 +13,206 @@ import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
+import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 import reactor.core.publisher.Mono;
 
+import javax.crypto.SecretKey;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 
 @Configuration
 @EnableReactiveMethodSecurity
 public class SecurityConfig {
 
     @Bean
-    SecurityWebFilterChain filterChain(
-            ServerHttpSecurity http,
-            JwtCookieWebFilter jwtCookieWebFilter
-    ) {
+    SecurityWebFilterChain filterChain(ServerHttpSecurity http, JwtCookieWebFilter jwtCookieWebFilter) {
 
         return http
 
-                /* =========================
-                   CORS
-                ========================= */
+                /*
+                 * ==============================
+                 * CORS
+                 * ==============================
+                 */.cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-                .cors(cors -> cors.configurationSource(
-                        corsConfigurationSource()
-                ))
+                /*
+                 * ==============================
+                 * CSRF
+                 * ==============================
+                 *
+                 * JWT authentication
+                 * nên disable CSRF.
+                 */.csrf(ServerHttpSecurity.CsrfSpec::disable)
 
-                /* =========================
-                   DISABLE CSRF
-                ========================= */
+                /*
+                 * ==============================
+                 * JWT COOKIE
+                 * ==============================
+                 *
+                 * accessToken trong Cookie
+                 * ↓
+                 * JwtCookieWebFilter
+                 * ↓
+                 * Authorization: Bearer xxx
+                 */.addFilterBefore(jwtCookieWebFilter, SecurityWebFiltersOrder.AUTHENTICATION)
 
-                .csrf(ServerHttpSecurity.CsrfSpec::disable)
+                /*
+                 * ==============================
+                 * AUTHORIZATION
+                 * ==============================
+                 */.authorizeExchange(exchange -> exchange
 
-                /* =========================
-                   JWT COOKIE FILTER
-                ========================= */
+                        /*
+                         * OPTIONS
+                         */.pathMatchers(HttpMethod.OPTIONS).permitAll()
 
-                .addFilterBefore(
-                        jwtCookieWebFilter,
-                        SecurityWebFiltersOrder.AUTHENTICATION
-                )
+                        /*
+                         * LOGIN / REGISTER / AUTH
+                         */.pathMatchers("/api/auth/**").permitAll()
 
-                /* =========================
-                   AUTHORIZATION
-                ========================= */
+                        /*
+                         * ACTIVE USER
+                         */.pathMatchers("/api/active-user/**").permitAll()
 
-                .authorizeExchange(exchange -> exchange
+                        /*
+                         * IMAGES
+                         */.pathMatchers("/images/**").permitAll()
 
-                        /* preflight */
-                        .pathMatchers(HttpMethod.OPTIONS)
-                        .permitAll()
+                        /*
+                         * ADMIN
+                         */.pathMatchers("/api/admin/**").hasRole("ADMIN")
 
-                        /* public api */
-                        .pathMatchers("/api/auth/**")
-                        .permitAll()
+                        /*
+                         * STAFF / ADMIN / USER
+                         */.pathMatchers("/api/staff/**").hasAnyRole("STAFF", "ADMIN", "USER")
 
-                        .pathMatchers("/api/active-user/**")
-                        .permitAll()
+                        /*
+                         * USER SERVICE
+                         */.pathMatchers("/api/nihongo-user/**").hasAnyRole("STAFF", "ADMIN", "USER")
 
-                        .pathMatchers("/images/**")
-                        .permitAll()
+                        /*
+                         * Các API còn lại
+                         */.anyExchange().authenticated())
 
-                        /* admin */
-                        .pathMatchers("/api/admin/**")
-                        .hasRole("ADMIN")
-
-                        /* staff */
-                        .pathMatchers("/api/staff/**")
-                        .hasAnyRole("STAFF", "ADMIN", "USER")
-
-                        /* users */
-                        .pathMatchers("/api/nihongo-user/**")
-                        .hasAnyRole("STAFF", "ADMIN", "USER")
-
-                        /* authenticated */
-                        .anyExchange()
-                        .authenticated()
-                )
-
-                /* =========================
-                   RESOURCE SERVER
-                ========================= */
-
-                .oauth2ResourceServer(resourceServer ->
-                        resourceServer.jwt(jwt ->
-                                jwt.jwtAuthenticationConverter(
-                                        jwtAuthenticationConverter()
-                                )
-                        )
-                )
+                /*
+                 * ==============================
+                 * RESOURCE SERVER
+                 * ==============================
+                 *
+                 * Gateway tự verify JWT.
+                 */.oauth2ResourceServer(resourceServer -> resourceServer.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
 
                 .build();
     }
 
+    /*
+     * ==========================================
+     * REACTIVE JWT DECODER
+     * ==========================================
+     *
+     * Gateway dùng secret này để verify JWT.
+     *
+     * QUAN TRỌNG:
+     *
+     * jwt.secret của Gateway
+     * PHẢI GIỐNG
+     * jwt.secret của user-service.
+     */
     @Bean
-    public Converter<Jwt, Mono<AbstractAuthenticationToken>>
-    jwtAuthenticationConverter() {
+    public ReactiveJwtDecoder jwtDecoder(@Value("${jwt.secret}") String secret) {
 
-        JwtGrantedAuthoritiesConverter defaultConverter =
-                new JwtGrantedAuthoritiesConverter();
+        byte[] keyBytes = Decoders.BASE64.decode(secret);
 
-        defaultConverter.setAuthorityPrefix("ROLE_");
+        SecretKey key = Keys.hmacShaKeyFor(keyBytes);
+
+        return NimbusReactiveJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
+    }
+
+    /*
+     * ==========================================
+     * JWT → AUTHORITIES
+     * ==========================================
+     *
+     * JWT:
+     *
+     * {
+     *   "sub": "...",
+     *   "email": "...",
+     *   "role": "USER"
+     * }
+     *
+     * ↓
+     *
+     * ROLE_USER
+     *
+     * Vì vậy:
+     *
+     * hasRole("USER")
+     *
+     * sẽ match:
+     *
+     * ROLE_USER
+     */
+    @Bean
+    public Converter<Jwt, Mono<AbstractAuthenticationToken>> jwtAuthenticationConverter() {
 
         return jwt -> {
 
-            Collection<GrantedAuthority> authorities =
-                    new ArrayList<>(
-                            defaultConverter.convert(jwt)
-                    );
+            List<GrantedAuthority> authorities = new ArrayList<>();
 
-            Map<String, Object> realmAccess =
-                    jwt.getClaim("realm_access");
+            List<String> roles = jwt.getClaimAsStringList("roles");
 
-            if (realmAccess != null) {
+            if (roles != null) {
 
-                List<String> roles =
-                        (List<String>) realmAccess.get("roles");
+                roles.forEach(role -> {
 
-                if (roles != null) {
+                    if (role != null && !role.isBlank()) {
 
-                    roles.forEach(role ->
-                            authorities.add(
-                                    new SimpleGrantedAuthority(
-                                            "ROLE_" + role
-                                    )
-                            )
-                    );
-                }
+                        authorities.add(new SimpleGrantedAuthority("ROLE_" + role));
+                    }
+                });
             }
 
-            return Mono.just(
-                    new JwtAuthenticationToken(
-                            jwt,
-                            authorities
-                    )
-            );
+            return Mono.just(new JwtAuthenticationToken(jwt, authorities));
         };
     }
 
+    /*
+     * ==========================================
+     * CORS
+     * ==========================================
+     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
 
-        CorsConfiguration config =
-                new CorsConfiguration();
+        CorsConfiguration config = new CorsConfiguration();
 
-        config.setAllowedOrigins(List.of(
-                "http://localhost:5173"
-        ));
+        config.setAllowedOrigins(List.of("http://localhost:5173"));
 
-        config.setAllowedMethods(List.of(
-                "GET",
-                "POST",
-                "PUT",
-                "DELETE",
-                "PATCH",
-                "OPTIONS"
-        ));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
 
         config.setAllowedHeaders(List.of("*"));
 
         config.setExposedHeaders(List.of("*"));
 
+        /*
+         * Cho phép Browser gửi Cookie
+         */
         config.setAllowCredentials(true);
 
         config.setMaxAge(3600L);
 
-        UrlBasedCorsConfigurationSource source =
-                new UrlBasedCorsConfigurationSource();
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
 
-        source.registerCorsConfiguration(
-                "/**",
-                config
-        );
+        source.registerCorsConfiguration("/**", config);
 
         return source;
     }
