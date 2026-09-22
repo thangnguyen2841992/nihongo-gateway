@@ -19,6 +19,11 @@ spring:
               enabled: true
 
           routes:
+            - id: wallet-websocket
+              uri: lb:ws://nihongo-user-service
+              predicates:
+                - Path=/api/nihongo-user/wallets/ws
+
             - id: user-service
               uri: lb://user-service
               predicates:
