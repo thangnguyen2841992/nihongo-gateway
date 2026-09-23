@@ -96,7 +96,8 @@ public class SecurityConfig {
 
                         /*
                          * USER SERVICE
-                         */.pathMatchers("/api/nihongo-user/**").hasAnyRole("STAFF", "ADMIN", "USER")
+                         */.pathMatchers(HttpMethod.GET, "/api/nihongo-user/courses").permitAll()
+                        .pathMatchers("/api/nihongo-user/**").hasAnyRole("STAFF", "ADMIN", "USER")
 
                         /*
                          * Các API còn lại
