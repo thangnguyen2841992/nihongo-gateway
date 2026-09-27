@@ -2,13 +2,17 @@ server:
   port: 8082
 
 spring:
+  config:
+    import: "optional:file:./.local/nihongo-gateway.properties,optional:file:../.local/nihongo-gateway.properties"
   application:
     name: gateway-service
 
   data:
     redis:
-      host: 180.93.115.154
-      port: 6379
+      host: ${REDIS_HOST:160.22.107.232}
+      port: ${REDIS_PORT:6379}
+      username: ${REDIS_USERNAME:}
+      password: ${REDIS_PASSWORD}
 
   cloud:
     gateway:
@@ -74,12 +78,12 @@ eureka:
 
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka}
     register-with-eureka: true
     fetch-registry: true
 
 jwt:
-  secret: "U7tjRTsx0baZLsRhHGcc0FA/B7MJ65IfQ0jZHvUyYrE="
+  secret: ${JWT_SECRET}
 
 api:
   client-id: japanese_app

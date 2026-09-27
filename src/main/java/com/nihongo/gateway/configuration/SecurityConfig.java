@@ -31,6 +31,7 @@ import java.util.List;
 @Configuration
 @EnableReactiveMethodSecurity
 public class SecurityConfig {
+    @Value("${FRONTEND_ORIGIN:http://localhost:5173}") private String[] frontendOrigins;
 
     @Bean
     SecurityWebFilterChain filterChain(ServerHttpSecurity http, JwtCookieWebFilter jwtCookieWebFilter) {
@@ -196,7 +197,7 @@ public class SecurityConfig {
 
         CorsConfiguration config = new CorsConfiguration();
 
-        config.setAllowedOrigins(List.of("http://localhost:5173"));
+        config.setAllowedOrigins(List.of(frontendOrigins));
 
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
 
