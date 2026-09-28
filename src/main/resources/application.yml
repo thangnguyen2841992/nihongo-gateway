@@ -12,7 +12,7 @@ spring:
       host: ${REDIS_HOST:160.22.107.232}
       port: ${REDIS_PORT:6379}
       username: ${REDIS_USERNAME:}
-      password: ${REDIS_PASSWORD}
+      password: ${REDIS_PASSWORD:thuThuy@123}
 
   cloud:
     gateway:
@@ -23,6 +23,17 @@ spring:
               enabled: true
 
           routes:
+            - id: japanese-ai
+              uri: lb://nihongo-user-service
+              predicates:
+                - Path=/api/nihongo-user/japanese
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 1
+                    redis-rate-limiter.burstCapacity: 60
+                    redis-rate-limiter.requestedTokens: 10
+
             - id: wallet-websocket
               uri: lb:ws://nihongo-user-service
               predicates:
@@ -83,7 +94,4 @@ eureka:
     fetch-registry: true
 
 jwt:
-  secret: ${JWT_SECRET}
-
-api:
-  client-id: japanese_app
+  secret: "U7tjRTsx0baZLsRhHGcc0FA/B7MJ65IfQ0jZHvUyYrE="
