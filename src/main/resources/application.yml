@@ -72,6 +72,12 @@ spring:
                     redis-rate-limiter.burstCapacity: 20
                     redis-rate-limiter.requestedTokens: 1
 
+            - id: staff-performance-websocket
+              uri: lb:ws://staff-service
+              order: -1
+              predicates:
+                - Path=/api/staff/vps-performance/ws
+
             - id: nihongo-user-service
               uri: lb://nihongo-user-service
               predicates:
