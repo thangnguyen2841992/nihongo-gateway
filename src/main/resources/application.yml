@@ -3,7 +3,7 @@ server:
 
 spring:
   config:
-    import: "optional:file:./.local/nihongo-gateway.properties,optional:file:../.local/nihongo-gateway.properties"
+    import: "optional:file:./.local/nihongo-gateway.properties,optional:file:../.local/nihongo-gateway.properties,optional:file:./.local/audit-secrets-gateway.properties,optional:file:./gateway/.local/audit-secrets-gateway.properties"
   application:
     name: gateway-service
 
@@ -100,4 +100,4 @@ eureka:
     fetch-registry: true
 
 jwt:
-  secret: "U7tjRTsx0baZLsRhHGcc0FA/B7MJ65IfQ0jZHvUyYrE="
+  secret: ${JWT_SECRET}
