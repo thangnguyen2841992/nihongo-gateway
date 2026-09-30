@@ -3,7 +3,7 @@ server:
 
 spring:
   config:
-    import: "optional:file:./.local/nihongo-gateway.properties,optional:file:../.local/nihongo-gateway.properties,optional:file:./.local/audit-secrets-gateway.properties,optional:file:./gateway/.local/audit-secrets-gateway.properties"
+    import: "optional:file:./.local/shared.properties,optional:file:../.local/shared.properties"
   application:
     name: gateway-service
 
@@ -12,7 +12,7 @@ spring:
       host: ${REDIS_HOST:160.22.107.232}
       port: ${REDIS_PORT:6379}
       username: ${REDIS_USERNAME:}
-      password: ${REDIS_PASSWORD:thuThuy@123}
+      password: ${REDIS_PASSWORD}
 
   cloud:
     gateway:
