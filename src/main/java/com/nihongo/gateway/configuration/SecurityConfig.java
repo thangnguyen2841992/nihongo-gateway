@@ -77,7 +77,8 @@ public class SecurityConfig {
 
                         /*
                          * LOGIN / REGISTER / AUTH
-                         */.pathMatchers("/api/auth/**").permitAll()
+                        */.pathMatchers("/api/auth/session/validate").denyAll()
+                        .pathMatchers("/api/auth/**").permitAll()
 
                         /*
                          * ACTIVE USER

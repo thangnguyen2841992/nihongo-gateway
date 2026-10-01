@@ -7,13 +7,6 @@ spring:
   application:
     name: gateway-service
 
-  data:
-    redis:
-      host: ${REDIS_HOST:160.22.107.232}
-      port: ${REDIS_PORT:6379}
-      username: ${REDIS_USERNAME:}
-      password: ${REDIS_PASSWORD}
-
   cloud:
     gateway:
       server:
@@ -27,13 +20,6 @@ spring:
               uri: lb://nihongo-user-service
               predicates:
                 - Path=/api/nihongo-user/japanese
-              filters:
-                - name: RequestRateLimiter
-                  args:
-                    redis-rate-limiter.replenishRate: 1
-                    redis-rate-limiter.burstCapacity: 60
-                    redis-rate-limiter.requestedTokens: 10
-
             - id: wallet-websocket
               uri: lb:ws://nihongo-user-service
               predicates:
@@ -43,35 +29,14 @@ spring:
               uri: lb://user-service
               predicates:
                 - Path=/api/auth/**,/api/users/**,/api/active-user/**,/images/**
-              filters:
-                - name: RequestRateLimiter
-                  args:
-                    redis-rate-limiter.replenishRate: 10
-                    redis-rate-limiter.burstCapacity: 20
-                    redis-rate-limiter.requestedTokens: 1
-
             - id: admin-service
               uri: lb://admin-service
               predicates:
                 - Path=/api/admin/**
-              filters:
-                - name: RequestRateLimiter
-                  args:
-                    redis-rate-limiter.replenishRate: 10
-                    redis-rate-limiter.burstCapacity: 20
-                    redis-rate-limiter.requestedTokens: 1
-
             - id: staff-service
               uri: lb://staff-service
               predicates:
                 - Path=/api/staff/**
-              filters:
-                - name: RequestRateLimiter
-                  args:
-                    redis-rate-limiter.replenishRate: 10
-                    redis-rate-limiter.burstCapacity: 20
-                    redis-rate-limiter.requestedTokens: 1
-
             - id: staff-performance-websocket
               uri: lb:ws://staff-service
               order: -1
@@ -82,13 +47,6 @@ spring:
               uri: lb://nihongo-user-service
               predicates:
                 - Path=/api/nihongo-user/**
-              filters:
-                - name: RequestRateLimiter
-                  args:
-                    redis-rate-limiter.replenishRate: 10
-                    redis-rate-limiter.burstCapacity: 20
-                    redis-rate-limiter.requestedTokens: 1
-
 eureka:
   instance:
     prefer-ip-address: true
@@ -101,3 +59,6 @@ eureka:
 
 jwt:
   secret: ${JWT_SECRET}
+
+auth:
+  session-validation-url: ${AUTH_SESSION_VALIDATION_URL:http://127.0.0.1:8081/api/auth/session/validate}
