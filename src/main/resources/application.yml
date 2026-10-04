@@ -11,6 +11,9 @@ spring:
     gateway:
       server:
         webflux:
+          httpclient:
+            connect-timeout: 3000
+            response-timeout: 15s
           discovery:
             locator:
               enabled: true
@@ -18,6 +21,8 @@ spring:
           routes:
             - id: japanese-ai
               uri: lb://nihongo-user-service
+              metadata:
+                response-timeout: 70000
               predicates:
                 - Path=/api/nihongo-user/japanese
             - id: wallet-websocket
