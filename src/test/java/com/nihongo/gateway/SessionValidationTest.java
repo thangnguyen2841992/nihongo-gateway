@@ -51,6 +51,7 @@ class SessionValidationTest {
         new SessionValidationFilter(builder, "http://127.0.0.1:8081/api/auth/session/validate")
                 .filter(exchange, chain).block();
         assertEquals(401, exchange.getResponse().getStatusCode().value());
+        assertEquals("session-invalid", exchange.getResponse().getHeaders().getFirst("X-Auth-Failure"));
         verifyNoInteractions(chain);
     }
 

@@ -51,6 +51,7 @@ public class SessionValidationFilter implements GlobalFilter, Ordered {
         }).defaultIfEmpty(true).flatMap(valid -> {
             if (valid) return chain.filter(exchange);
             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+            exchange.getResponse().getHeaders().set("X-Auth-Failure", "session-invalid");
             return exchange.getResponse().setComplete();
         });
     }
