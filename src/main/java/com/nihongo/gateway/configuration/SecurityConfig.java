@@ -91,6 +91,7 @@ public class SecurityConfig {
                         /*
                          * ADMIN
                          */.pathMatchers("/api/admin/**").hasRole("ADMIN")
+                        .pathMatchers("/api/users/admin/**").hasRole("ADMIN")
 
                         /*
                          * STAFF / ADMIN / USER
