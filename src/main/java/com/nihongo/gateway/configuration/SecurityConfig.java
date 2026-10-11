@@ -1,223 +1,46 @@
 package com.nihongo.gateway.configuration;
-
-import io.jsonwebtoken.io.Decoders;
-import io.jsonwebtoken.security.Keys;
+import com.nihongo.security.*;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.*;
+import org.springframework.core.env.Environment;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableReactiveMethodSecurity;
-import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
-import org.springframework.security.config.web.server.ServerHttpSecurity;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
-import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
-import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
+import org.springframework.security.config.web.server.*;
+import org.springframework.security.oauth2.jwt.*;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.web.server.SecurityWebFilterChain;
-import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.*;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 import reactor.core.publisher.Mono;
-
-import javax.crypto.SecretKey;
-import java.util.ArrayList;
 import java.util.List;
-
-@Configuration
-@EnableReactiveMethodSecurity
+@Configuration @EnableReactiveMethodSecurity
 public class SecurityConfig {
-    @Value("${FRONTEND_ORIGIN:http://localhost:5173}") private String[] frontendOrigins;
-
-    @Bean
-    SecurityWebFilterChain filterChain(ServerHttpSecurity http, JwtCookieWebFilter jwtCookieWebFilter) {
-
-        return http
-
-                /*
-                 * ==============================
-                 * CORS
-                 * ==============================
-                 */.cors(cors -> cors.configurationSource(corsConfigurationSource()))
-
-                /*
-                 * ==============================
-                 * CSRF
-                 * ==============================
-                 *
-                 * JWT authentication
-                 * nên disable CSRF.
-                 */.csrf(ServerHttpSecurity.CsrfSpec::disable)
-
-                /*
-                 * ==============================
-                 * JWT COOKIE
-                 * ==============================
-                 *
-                 * accessToken trong Cookie
-                 * ↓
-                 * JwtCookieWebFilter
-                 * ↓
-                 * Authorization: Bearer xxx
-                 */.addFilterBefore(jwtCookieWebFilter, SecurityWebFiltersOrder.AUTHENTICATION)
-
-                /*
-                 * ==============================
-                 * AUTHORIZATION
-                 * ==============================
-                 */.authorizeExchange(exchange -> exchange
-
-                        /*
-                         * OPTIONS
-                         */.pathMatchers(HttpMethod.OPTIONS).permitAll()
-
-                        /*
-                         * LOGIN / REGISTER / AUTH
-                        */.pathMatchers("/api/auth/session/validate").denyAll()
-                        .pathMatchers("/api/auth/**").permitAll()
-
-                        /*
-                         * ACTIVE USER
-                         */.pathMatchers("/api/active-user/**").permitAll()
-
-                        /*
-                         * IMAGES
-                         */.pathMatchers("/images/**").permitAll()
-
-                        /*
-                         * ADMIN
-                         */.pathMatchers("/api/admin/**").hasRole("ADMIN")
-                        .pathMatchers("/api/users/admin/**").hasRole("ADMIN")
-
-                        /*
-                         * STAFF / ADMIN / USER
-                         */.pathMatchers("/api/staff/**").hasAnyRole("STAFF", "ADMIN", "USER")
-
-                        /*
-                         * USER SERVICE
-                         */.pathMatchers(HttpMethod.GET, "/api/nihongo-user/courses").permitAll()
-                        .pathMatchers("/api/nihongo-user/**").hasAnyRole("STAFF", "ADMIN", "USER")
-
-                        /*
-                         * Các API còn lại
-                         */.anyExchange().authenticated())
-
-                /*
-                 * ==============================
-                 * RESOURCE SERVER
-                 * ==============================
-                 *
-                 * Gateway tự verify JWT.
-                 */.oauth2ResourceServer(resourceServer -> resourceServer.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
-
-                .build();
-    }
-
-    /*
-     * ==========================================
-     * REACTIVE JWT DECODER
-     * ==========================================
-     *
-     * Gateway dùng secret này để verify JWT.
-     *
-     * QUAN TRỌNG:
-     *
-     * jwt.secret của Gateway
-     * PHẢI GIỐNG
-     * jwt.secret của user-service.
-     */
-    @Bean
-    public ReactiveJwtDecoder jwtDecoder(@Value("${jwt.secret}") String secret) {
-
-        byte[] keyBytes = Decoders.BASE64.decode(secret);
-
-        SecretKey key = Keys.hmacShaKeyFor(keyBytes);
-
-        return NimbusReactiveJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
-    }
-
-    /*
-     * ==========================================
-     * JWT → AUTHORITIES
-     * ==========================================
-     *
-     * JWT:
-     *
-     * {
-     *   "sub": "...",
-     *   "email": "...",
-     *   "role": "USER"
-     * }
-     *
-     * ↓
-     *
-     * ROLE_USER
-     *
-     * Vì vậy:
-     *
-     * hasRole("USER")
-     *
-     * sẽ match:
-     *
-     * ROLE_USER
-     */
-    @Bean
-    public Converter<Jwt, Mono<AbstractAuthenticationToken>> jwtAuthenticationConverter() {
-
-        return jwt -> {
-
-            List<GrantedAuthority> authorities = new ArrayList<>();
-
-            List<String> roles = jwt.getClaimAsStringList("roles");
-
-            if (roles != null) {
-
-                roles.forEach(role -> {
-
-                    if (role != null && !role.isBlank()) {
-
-                        authorities.add(new SimpleGrantedAuthority("ROLE_" + role));
-                    }
-                });
-            }
-
-            return Mono.just(new JwtAuthenticationToken(jwt, authorities));
-        };
-    }
-
-    /*
-     * ==========================================
-     * CORS
-     * ==========================================
-     */
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-
-        CorsConfiguration config = new CorsConfiguration();
-
-        config.setAllowedOrigins(List.of(frontendOrigins));
-
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-
-        config.setAllowedHeaders(List.of("*"));
-
-        config.setExposedHeaders(List.of("*"));
-
-        /*
-         * Cho phép Browser gửi Cookie
-         */
-        config.setAllowCredentials(true);
-
-        config.setMaxAge(3600L);
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-
-        source.registerCorsConfiguration("/**", config);
-
-        return source;
-    }
+ @Bean public org.springframework.beans.factory.InitializingBean productionSecurityPolicy(Environment env){return ()->ProductionSecurityPolicy.verify(env);}
+ @Value("${FRONTEND_ORIGIN:http://localhost:5173}") private String[] origins;
+ @Bean public InternalCredentials internalCredentials(Environment env){return new InternalCredentials(env);}
+ @Bean public ReactiveJwtDecoder jwtDecoder(Environment env){return SecurityJwtDecoders.reactive(env);}
+ @Bean SecurityWebFilterChain filterChain(ServerHttpSecurity http,JwtCookieWebFilter cookies,Environment env){
+  var policy=new BrowserOriginPolicy(origins);
+  return http.cors(c->c.configurationSource(corsConfigurationSource())).csrf(ServerHttpSecurity.CsrfSpec::disable)
+   // Browser requests are protected by an explicit strict Origin/Referer policy before cookie-to-bearer conversion.
+   .addFilterBefore(new BrowserOriginWebFilter(policy,env.getProperty("security.origin-check.enabled",Boolean.class,true)),SecurityWebFiltersOrder.AUTHENTICATION)
+   .addFilterBefore(cookies,SecurityWebFiltersOrder.AUTHENTICATION)
+   .authorizeExchange(a->a.pathMatchers(HttpMethod.OPTIONS).permitAll()
+    .pathMatchers("/api/auth/internal/**","/api/auth/session/validate").denyAll()
+    .pathMatchers("/api/auth/**","/api/active-user/**").permitAll()
+    .pathMatchers(HttpMethod.GET,"/images/**","/api/nihongo-user/courses").permitAll()
+    .pathMatchers(HttpMethod.HEAD,"/images/**").permitAll()
+    .pathMatchers("/api/admin/**","/api/users/admin/**","/api/nihongo-user/admin/**","/api/notification/admin/**","/api/staff/content/audit/**").hasRole("ADMIN")
+    .pathMatchers("/api/nihongo-user/staff/**","/api/users/staff/**","/api/users/staff-directory").hasAnyRole("ADMIN","STAFF")
+    .pathMatchers("/api/staff/content/reports","/api/staff/content/reports/mine").hasAnyRole("ADMIN","STAFF","USER")
+    .pathMatchers("/api/staff/content/**").hasAnyRole("ADMIN","STAFF")
+    .pathMatchers("/api/users/**","/api/staff/**","/api/nihongo-user/**","/ws/**","/images/**").hasAnyRole("ADMIN","STAFF","USER")
+    .anyExchange().denyAll())
+   .oauth2ResourceServer(o->o.jwt(j->j.jwtAuthenticationConverter(jwtAuthenticationConverter()))).build();
+ }
+ @Bean public Converter<Jwt,Mono<AbstractAuthenticationToken>> jwtAuthenticationConverter(){return jwt->{var converter=new JwtRoleConverter();return Mono.just(new JwtAuthenticationToken(jwt,converter.convert(jwt)));};}
+ @Bean public CorsConfigurationSource corsConfigurationSource(){var c=new CorsConfiguration();c.setAllowedOrigins(List.of(origins));c.setAllowedMethods(List.of("GET","HEAD","POST","PUT","PATCH","DELETE","OPTIONS"));c.setAllowedHeaders(List.of("Content-Type","Authorization","Idempotency-Key","X-Requested-With"));c.setExposedHeaders(List.of("X-Auth-Failure","Retry-After"));c.setAllowCredentials(true);c.setMaxAge(3600L);var source=new UrlBasedCorsConfigurationSource();source.registerCorsConfiguration("/**",c);return source;}
 }

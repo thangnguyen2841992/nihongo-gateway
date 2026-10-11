@@ -1,0 +1,17 @@
+<configuration>
+  <springProperty scope="context" name="SERVICE_NAME" source="spring.application.name" defaultValue="application"/>
+  <springProperty scope="context" name="LOG_ROOT" source="LOG_DIR" defaultValue="logs"/>
+  <springProperty scope="context" name="APP_LOG_LEVEL" source="APP_LOG_LEVEL" defaultValue="INFO"/>
+  <springProperty scope="context" name="KAFKA_LOG_LEVEL" source="KAFKA_LOG_LEVEL" defaultValue="INFO"/>
+  <springProperty scope="context" name="SOCKET_LOG_LEVEL" source="SOCKET_LOG_LEVEL" defaultValue="INFO"/>
+  <springProperty scope="context" name="SQL_LOG_LEVEL" source="SQL_LOG_LEVEL" defaultValue="OFF"/>
+  <springProperty scope="context" name="LOG_RETENTION_DAYS" source="LOG_RETENTION_DAYS" defaultValue="14"/>
+  <springProperty scope="context" name="LOG_MAX_FILE_SIZE" source="LOG_MAX_FILE_SIZE" defaultValue="20MB"/>
+  <springProperty scope="context" name="LOG_TOTAL_SIZE_CAP" source="LOG_TOTAL_SIZE_CAP" defaultValue="200MB"/>
+  <springProperty scope="context" name="SQL_RETENTION_DAYS" source="SQL_RETENTION_DAYS" defaultValue="3"/>
+  <springProperty scope="context" name="SQL_MAX_FILE_SIZE" source="SQL_MAX_FILE_SIZE" defaultValue="10MB"/>
+  <springProperty scope="context" name="SQL_TOTAL_SIZE_CAP" source="SQL_TOTAL_SIZE_CAP" defaultValue="100MB"/>
+  <springProperty scope="context" name="LOG_ASYNC_QUEUE_SIZE" source="LOG_ASYNC_QUEUE_SIZE" defaultValue="2048"/>
+  <springProperty scope="context" name="LOG_CLEANUP_INTERVAL_SECONDS" source="LOG_CLEANUP_INTERVAL_SECONDS" defaultValue="3600"/>
+  <include resource="nihongo/logging/appenders.xml"/>
+</configuration>

@@ -5,21 +5,17 @@ import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.cloud.gateway.route.Route;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR;
 
-/** Per-gateway-instance token buckets. Keep a single gateway instance for global limits. */
-@Component
+/** Legacy test fixture. Runtime limits are persisted by SharedRateLimitFilter. */
+@Deprecated // Explicit development/test fallback only; production uses SharedRateLimitFilter.
 public class InMemoryRateLimitFilter implements GlobalFilter, Ordered {
-    private static final Set<String> LIMITED_ROUTES = Set.of(
-            "japanese-ai", "user-service", "admin-service", "staff-service", "nihongo-user-service");
     private static final int MAX_BUCKETS = 20000;
     private static final long IDLE_MILLIS = 600000;
     private final ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>();
@@ -29,8 +25,8 @@ public class InMemoryRateLimitFilter implements GlobalFilter, Ordered {
 
     @Override public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         Route route = exchange.getAttribute(GATEWAY_ROUTE_ATTR);
-        if (route == null || !LIMITED_ROUTES.contains(route.getId())) return chain.filter(exchange);
-        boolean ai = "japanese-ai".equals(route.getId());
+        if (route == null) return chain.filter(exchange);
+        boolean ai = exchange.getRequest().getPath().value().endsWith("/api/nihongo-user/japanese");
         var address = exchange.getRequest().getRemoteAddress();
         String remote = address == null ? "unknown" : address.getHostString();
         return exchange.getPrincipal().map(principal -> principal.getName()).defaultIfEmpty(remote)

@@ -19,18 +19,21 @@ import java.time.Duration;
 public class SessionValidationFilter implements GlobalFilter, Ordered {
     private final WebClient client;
     private final String validationUrl;
+    private final com.nihongo.security.InternalCredentials credentials;
 
     public SessionValidationFilter(WebClient.Builder builder,
-            @Value("${auth.session-validation-url:http://127.0.0.1:8081/api/auth/session/validate}") String validationUrl) {
+            @Value("${auth.session-validation-url:http://127.0.0.1:8081/api/auth/session/validate}") String validationUrl,
+            com.nihongo.security.InternalCredentials credentials) {
         this.client = builder.build();
         this.validationUrl = validationUrl;
+        this.credentials = credentials;
     }
 
     @Override public int getOrder() { return -10; }
 
     @Override public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         // Auth endpoints validate their own cookies; login and refresh have no access JWT.
-        if (exchange.getRequest().getPath().value().startsWith("/api/auth/")) return chain.filter(exchange);
+        if (com.nihongo.security.SecurityRequestPaths.canonical(exchange.getRequest().getURI()).startsWith("/api/auth/")) return chain.filter(exchange);
         return exchange.getPrincipal().flatMap(principal -> {
             if (!(principal instanceof JwtAuthenticationToken auth)) return Mono.just(true);
             var jwt = auth.getToken();
@@ -38,6 +41,7 @@ public class SessionValidationFilter implements GlobalFilter, Ordered {
                 return Mono.just(false);
             return client.get().uri(validationUrl)
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + jwt.getTokenValue())
+                    .header(com.nihongo.security.InternalCredentials.HEADER,credentials.value())
                     .exchangeToMono(response -> {
                         if (response.statusCode().is2xxSuccessful()) return Mono.just(true);
                         if (response.statusCode().value() == 401) return Mono.just(false);

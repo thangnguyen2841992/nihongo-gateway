@@ -34,3 +34,5 @@ build/
 
 # Private local configuration
 /.local/
+
+/logs/

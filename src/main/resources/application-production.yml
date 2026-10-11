@@ -1,0 +1,11 @@
+# Production rejects weaker overrides at startup.
+security:
+  origin-check:
+    enabled: true
+  session-validation:
+    enabled: true
+  jwt:
+    mode: rsa
+    allow-legacy-hmac: false
+    validate-claims: true
+

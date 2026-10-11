@@ -38,7 +38,7 @@ class SessionValidationTest {
             calls.incrementAndGet();
             return Mono.just(ClientResponse.create(HttpStatus.NO_CONTENT).build());
         });
-        new SessionValidationFilter(builder, "http://127.0.0.1:8081/api/auth/session/validate")
+        new SessionValidationFilter(builder, "http://127.0.0.1:8081/api/auth/session/validate",new com.nihongo.security.InternalCredentials(new org.springframework.mock.env.MockEnvironment().withProperty("security.internal.key",java.util.Base64.getEncoder().encodeToString(new byte[32]))))
                 .filter(exchange("access"), chain).block();
         assertEquals(1, calls.get());
         verify(chain).filter(any());
@@ -48,7 +48,7 @@ class SessionValidationTest {
         var builder = WebClient.builder().exchangeFunction(request ->
                 Mono.just(ClientResponse.create(HttpStatus.UNAUTHORIZED).build()));
         var exchange = exchange("access");
-        new SessionValidationFilter(builder, "http://127.0.0.1:8081/api/auth/session/validate")
+        new SessionValidationFilter(builder, "http://127.0.0.1:8081/api/auth/session/validate",new com.nihongo.security.InternalCredentials(new org.springframework.mock.env.MockEnvironment().withProperty("security.internal.key",java.util.Base64.getEncoder().encodeToString(new byte[32]))))
                 .filter(exchange, chain).block();
         assertEquals(401, exchange.getResponse().getStatusCode().value());
         assertEquals("session-invalid", exchange.getResponse().getHeaders().getFirst("X-Auth-Failure"));
@@ -58,7 +58,7 @@ class SessionValidationTest {
     @Test void unavailableUserServiceFailsClosed() {
         var builder = WebClient.builder().exchangeFunction(request -> Mono.error(new IOException("offline")));
         var error = assertThrows(ResponseStatusException.class, () ->
-                new SessionValidationFilter(builder, "http://127.0.0.1:8081/api/auth/session/validate")
+                new SessionValidationFilter(builder, "http://127.0.0.1:8081/api/auth/session/validate",new com.nihongo.security.InternalCredentials(new org.springframework.mock.env.MockEnvironment().withProperty("security.internal.key",java.util.Base64.getEncoder().encodeToString(new byte[32]))))
                         .filter(exchange("access"), chain).block());
         assertEquals(503, error.getStatusCode().value());
         verifyNoInteractions(chain);
@@ -67,7 +67,7 @@ class SessionValidationTest {
     @Test void refreshTokenCannotAuthorizeApi() {
         var builder = WebClient.builder().exchangeFunction(request -> fail("Must not contact user-service"));
         var exchange = exchange("refresh");
-        new SessionValidationFilter(builder, "http://127.0.0.1:8081/api/auth/session/validate")
+        new SessionValidationFilter(builder, "http://127.0.0.1:8081/api/auth/session/validate",new com.nihongo.security.InternalCredentials(new org.springframework.mock.env.MockEnvironment().withProperty("security.internal.key",java.util.Base64.getEncoder().encodeToString(new byte[32]))))
                 .filter(exchange, chain).block();
         assertEquals(401, exchange.getResponse().getStatusCode().value());
         verifyNoInteractions(chain);

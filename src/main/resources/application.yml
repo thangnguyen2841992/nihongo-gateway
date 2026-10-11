@@ -1,9 +1,12 @@
 server:
+  address: ${GATEWAY_BIND_ADDRESS:127.0.0.1}
   port: 8082
+  # Preserve the transport peer; the limiter validates forwarding headers itself.
+  forward-headers-strategy: none
 
 spring:
-  config:
-    import: "optional:file:./.local/shared.properties,optional:file:../.local/shared.properties"
+  profiles:
+    default: local
   application:
     name: gateway-service
 
@@ -16,9 +19,22 @@ spring:
             response-timeout: 15s
           discovery:
             locator:
-              enabled: true
+              enabled: false
 
           routes:
+            - id: notification-operations
+              uri: lb://notification-service
+              predicates:
+                - Path=/api/notification/admin/**
+            - id: auth-websocket
+              uri: lb:ws://user-service
+              order: -2
+              predicates:
+                - Path=/ws/native,/ws/*/*/websocket
+            - id: auth-sockjs
+              uri: lb://user-service
+              predicates:
+                - Path=/ws/**
             - id: japanese-ai
               uri: lb://nihongo-user-service
               metadata:
@@ -55,6 +71,7 @@ spring:
 eureka:
   instance:
     prefer-ip-address: true
+    ip-address: ${SERVICE_ADVERTISED_ADDRESS:127.0.0.1}
 
   client:
     service-url:
@@ -63,7 +80,7 @@ eureka:
     fetch-registry: true
 
 jwt:
-  secret: ${JWT_SECRET}
+  secret: ${JWT_SECRET:}
 
 auth:
   session-validation-url: ${AUTH_SESSION_VALIDATION_URL:http://127.0.0.1:8081/api/auth/session/validate}
