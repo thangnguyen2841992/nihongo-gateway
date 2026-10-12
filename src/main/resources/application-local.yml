@@ -1,6 +1,11 @@
 # Local HTTP is explicit. All authentication and session checks remain enabled.
 FRONTEND_ORIGIN: http://localhost:5173,http://127.0.0.1:5173
 
+# Browser and gateway run on the same machine for direct localhost connections.
+security:
+  login-audit:
+    capture-local-network: true
+
 
 spring:
   config:
