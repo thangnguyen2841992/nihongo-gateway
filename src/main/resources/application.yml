@@ -28,7 +28,7 @@ spring:
             - id: notification-operations
               uri: lb://notification-service
               predicates:
-                - Path=/api/notification/admin/**
+                - Path=/api/notification/admin/**,/api/notification/staff/**,/api/notification/broadcasts
             - id: auth-websocket
               uri: lb:ws://user-service
               order: -2
