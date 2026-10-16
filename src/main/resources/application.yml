@@ -1,6 +1,9 @@
 server:
   address: ${GATEWAY_BIND_ADDRESS:127.0.0.1}
   port: 8082
+  compression:
+    enabled: true
+    min-response-size: 1024
   # Preserve the transport peer; the limiter validates forwarding headers itself.
   forward-headers-strategy: none
 
@@ -84,3 +87,8 @@ jwt:
 
 auth:
   session-validation-url: ${AUTH_SESSION_VALIDATION_URL:http://127.0.0.1:8081/api/auth/session/validate}
+  # Short positive cache removes duplicate DB session checks while keeping logout propagation bounded.
+  session-cache-ttl: ${AUTH_SESSION_CACHE_TTL:5000}
+  session-cache-max-entries: ${AUTH_SESSION_CACHE_MAX_ENTRIES:20000}
+  # Login, AI, wallet and account limits remain shared; ordinary API traffic is limited in-process.
+  local-general-rate-limit: ${AUTH_LOCAL_GENERAL_RATE_LIMIT:true}

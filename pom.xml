@@ -33,6 +33,10 @@
 		<maven.compiler.target>17</maven.compiler.target>
 	</properties>
 	<dependencies>
+		<dependency>
+			<groupId>com.github.ben-manes.caffeine</groupId>
+			<artifactId>caffeine</artifactId>
+		</dependency>
         <dependency><groupId>com.nihongo</groupId><artifactId>common-logging</artifactId><version>0.0.1-SNAPSHOT</version></dependency>
         <dependency><groupId>com.nihongo</groupId><artifactId>common-security</artifactId><version>0.0.1-SNAPSHOT</version></dependency>
 		<!-- Source: https://mvnrepository.com/artifact/org.springframework.cloud/spring-cloud-starter-gateway -->

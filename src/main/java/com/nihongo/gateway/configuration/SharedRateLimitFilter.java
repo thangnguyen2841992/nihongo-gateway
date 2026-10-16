@@ -3,8 +3,9 @@ import com.nihongo.security.InternalCredentials;import com.fasterxml.jackson.dat
 import org.springframework.beans.factory.annotation.Value;import org.springframework.cloud.gateway.filter.*;import org.springframework.core.Ordered;import org.springframework.core.io.buffer.*;import org.springframework.http.*;import org.springframework.http.server.reactive.*;import org.springframework.stereotype.Component;import org.springframework.web.server.*;import org.springframework.web.reactive.function.client.WebClient;import reactor.core.publisher.*;import java.time.Duration;import java.util.*;
 @Component public class SharedRateLimitFilter implements GlobalFilter,Ordered {
  public record Limit(String category,String identity){} public record Result(boolean allowed,long retryAfter){}
- private final WebClient client;private final String endpoint;private final InternalCredentials internal;private final ClientAddressResolver addresses;private final ObjectMapper json=new ObjectMapper();
- public SharedRateLimitFilter(WebClient.Builder builder,InternalCredentials internal,ClientAddressResolver addresses,@Value("${auth.rate-limit-url:http://127.0.0.1:8081/api/auth/internal/rate-limit}") String endpoint){this.client=builder.build();this.internal=internal;this.addresses=addresses;this.endpoint=endpoint;}
+ private final WebClient client;private final String endpoint;private final InternalCredentials internal;private final ClientAddressResolver addresses;private final ObjectMapper json=new ObjectMapper();private final LocalApiRateLimiter local=new LocalApiRateLimiter();private final boolean localGeneralLimits;
+ public SharedRateLimitFilter(WebClient.Builder builder,InternalCredentials internal,ClientAddressResolver addresses,String endpoint){this(builder,internal,addresses,endpoint,true);}
+ @org.springframework.beans.factory.annotation.Autowired public SharedRateLimitFilter(WebClient.Builder builder,InternalCredentials internal,ClientAddressResolver addresses,@Value("${auth.rate-limit-url:http://127.0.0.1:8081/api/auth/internal/rate-limit}") String endpoint,@Value("${auth.local-general-rate-limit:true}") boolean localGeneralLimits){this.client=builder.build();this.internal=internal;this.addresses=addresses;this.endpoint=endpoint;this.localGeneralLimits=localGeneralLimits;}
  @Override public int getOrder(){return -20;}
  @Override public Mono<Void> filter(ServerWebExchange exchange,GatewayFilterChain chain){
   String path=com.nihongo.security.SecurityRequestPaths.canonical(exchange.getRequest().getURI());String ip=addresses.identity(exchange);
@@ -23,6 +24,7 @@ import org.springframework.beans.factory.annotation.Value;import org.springframe
   });
  }
  private Mono<Void> apply(ServerWebExchange exchange,GatewayFilterChain chain,List<Limit> limits){
+  if(localGeneralLimits&&limits.size()==1&&(limits.get(0).category().equals("API_USER")||limits.get(0).category().equals("API_IP"))){var result=local.consume(limits.get(0).category(),limits.get(0).identity());return result.allowed()?chain.filter(exchange):reject(exchange,429,result.retryAfter());}
   return client.post().uri(endpoint).header(InternalCredentials.HEADER,internal.value()).bodyValue(limits).retrieve().bodyToMono(Result.class).timeout(Duration.ofSeconds(3)).onErrorMap(e->new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Request limiter unavailable"))
    .flatMap(result->result.allowed()?chain.filter(exchange):reject(exchange,429,result.retryAfter()));
  }

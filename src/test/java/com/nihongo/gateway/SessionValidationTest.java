@@ -44,6 +44,20 @@ class SessionValidationTest {
         verify(chain).filter(any());
     }
 
+    @Test void repeatedRequestsReuseShortPositiveValidation() {
+        when(chain.filter(any())).thenReturn(Mono.empty());
+        AtomicInteger calls = new AtomicInteger();
+        var builder = WebClient.builder().exchangeFunction(request -> {
+            calls.incrementAndGet();
+            return Mono.just(ClientResponse.create(HttpStatus.NO_CONTENT).build());
+        });
+        var filter = new SessionValidationFilter(builder, "http://127.0.0.1:8081/api/auth/session/validate",
+                new com.nihongo.security.InternalCredentials(new org.springframework.mock.env.MockEnvironment().withProperty("security.internal.key",java.util.Base64.getEncoder().encodeToString(new byte[32]))));
+        filter.filter(exchange("access"), chain).block();
+        filter.filter(exchange("access"), chain).block();
+        assertEquals(1, calls.get());
+    }
+
     @Test void revokedSessionIsRejected() {
         var builder = WebClient.builder().exchangeFunction(request ->
                 Mono.just(ClientResponse.create(HttpStatus.UNAUTHORIZED).build()));
