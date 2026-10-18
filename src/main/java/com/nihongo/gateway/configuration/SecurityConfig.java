@@ -36,7 +36,7 @@ public class SecurityConfig {
     .pathMatchers("/api/admin/**","/api/users/admin/**","/api/nihongo-user/admin/**","/api/notification/admin/**","/api/staff/content/audit/**").hasRole("ADMIN")
     .pathMatchers("/api/notification/staff/**").hasAnyRole("ADMIN","STAFF")
     .pathMatchers("/api/nihongo-user/staff/**","/api/users/staff/**","/api/users/staff-directory").hasAnyRole("ADMIN","STAFF")
-    .pathMatchers("/api/notification/broadcasts").hasAnyRole("ADMIN","STAFF","USER")
+    .pathMatchers("/api/notification/broadcasts","/api/notification/ws").hasAnyRole("ADMIN","STAFF","USER")
     .pathMatchers("/api/staff/content/reports","/api/staff/content/reports/mine").hasAnyRole("ADMIN","STAFF","USER")
     .pathMatchers("/api/staff/content/**").hasAnyRole("ADMIN","STAFF")
     .pathMatchers("/api/users/**","/api/staff/**","/api/nihongo-user/**","/ws/**","/images/**").hasAnyRole("ADMIN","STAFF","USER")

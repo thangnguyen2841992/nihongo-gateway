@@ -25,6 +25,11 @@ spring:
               enabled: false
 
           routes:
+            - id: notification-websocket
+              uri: lb:ws://notification-service
+              order: -1
+              predicates:
+                - Path=/api/notification/ws
             - id: notification-operations
               uri: lb://notification-service
               predicates:
