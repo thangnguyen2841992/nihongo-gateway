@@ -16,8 +16,8 @@ final class LocalApiRateLimiter {
         if ((requests.incrementAndGet() & 255) == 0) removeIdleBuckets();
         String key = category + ':' + identity;
         if (buckets.size() >= MAX_BUCKETS && !buckets.containsKey(key)) return new Result(false, 1);
-        double capacity = "API_USER".equals(category) ? 100 : 60;
-        double refill = "API_USER".equals(category) ? 50 : 10;
+        double capacity = switch (category) { case "API_USER" -> 100; case "AUTH_SESSION_IP" -> 120; default -> 60; };
+        double refill = switch (category) { case "API_USER" -> 50; case "AUTH_SESSION_IP" -> 4; default -> 10; };
         return buckets.computeIfAbsent(key, ignored -> new Bucket(capacity)).consume(capacity, refill);
     }
 
