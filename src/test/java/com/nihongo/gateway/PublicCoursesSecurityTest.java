@@ -42,6 +42,7 @@ class PublicCoursesSecurityTest {
     @AfterAll static void removeKey() throws Exception { Files.deleteIfExists(publicKey); }
     @RestController static class ProbeController {
         @GetMapping("/api/nihongo-user/courses") String catalog() { return "catalog"; }
+        @GetMapping("/api/staff/public/levels/1/syllabus") String syllabus() { return "syllabus"; }
         @GetMapping("/api/staff/types") String staff(@RequestHeader("Authorization") String authorization) { return authorization; }
         @GetMapping({"/api/admin/probe", "/api/nihongo-user/admin/probe", "/api/notification/admin/operations", "/api/staff/content/audit/probe",
                 "/NIHONGO-USER-SERVICE/api/nihongo-user/japanese", "/api/auth/internal/probe", "/api/auth/session/validate"})
@@ -57,6 +58,10 @@ class PublicCoursesSecurityTest {
     }
     @Test void anonymousCatalogIsPublic() {
         client.get().uri("/api/nihongo-user/courses").exchange().expectStatus().isOk();
+    }
+    @Test void anonymousSyllabusIsPublicButOtherStaffApisAreNot() {
+        client.get().uri("/api/staff/public/levels/1/syllabus").exchange().expectStatus().isOk();
+        client.get().uri("/api/staff/types").exchange().expectStatus().isUnauthorized();
     }
     @Test void privateApisAndWritesRemainProtected() {
         client.get().uri("/api/nihongo-user/wallets").exchange().expectStatus().isUnauthorized();

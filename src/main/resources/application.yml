@@ -20,6 +20,12 @@ spring:
           httpclient:
             connect-timeout: 3000
             response-timeout: 15s
+            # Downstream Tomcat closes idle keep-alive connections after ~60s. Retiring pooled connections earlier
+            # avoids reusing one the service just closed ("Connection prematurely closed" → sporadic 502).
+            pool:
+              max-idle-time: 30s
+              max-life-time: 10m
+              eviction-interval: 30s
           discovery:
             locator:
               enabled: false

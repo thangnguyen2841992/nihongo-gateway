@@ -31,7 +31,7 @@ public class SecurityConfig {
    .authorizeExchange(a->a.pathMatchers(HttpMethod.OPTIONS).permitAll()
     .pathMatchers("/api/auth/internal/**","/api/auth/session/validate").denyAll()
     .pathMatchers("/api/auth/**","/api/active-user/**").permitAll()
-    .pathMatchers(HttpMethod.GET,"/images/**","/api/nihongo-user/courses").permitAll()
+    .pathMatchers(HttpMethod.GET,"/images/**","/api/nihongo-user/courses","/api/staff/public/**").permitAll()
     .pathMatchers(HttpMethod.HEAD,"/images/**").permitAll()
     .pathMatchers("/api/admin/**","/api/users/admin/**","/api/nihongo-user/admin/**","/api/notification/admin/**","/api/staff/content/audit/**").hasRole("ADMIN")
     .pathMatchers("/api/notification/staff/**").hasAnyRole("ADMIN","STAFF")
