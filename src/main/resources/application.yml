@@ -68,6 +68,13 @@ spring:
               uri: lb://admin-service
               predicates:
                 - Path=/api/admin/**
+            # Publishing an imported book writes hundreds of rows to the shared database; allow it more than 15 s.
+            - id: staff-book-imports
+              uri: lb://staff-service
+              metadata:
+                response-timeout: 300000
+              predicates:
+                - Path=/api/staff/book-imports/**
             - id: staff-service
               uri: lb://staff-service
               predicates:
